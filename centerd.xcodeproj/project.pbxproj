@@ -250,6 +250,7 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				MACOSX_DEPLOYMENT_TARGET = 11.5;
+				"PRODUCT_BUNDLE_IDENTIFIER[sdk=macosx*]" = com.fefedimoraes.centerd;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
 			};
@@ -258,8 +259,10 @@
 		C8FABE2F2DF181E900DDCEED /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Automatic;
 				MACOSX_DEPLOYMENT_TARGET = 11.5;
+				"PRODUCT_BUNDLE_IDENTIFIER[sdk=macosx*]" = com.fefedimoraes.centerd;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
 			};
