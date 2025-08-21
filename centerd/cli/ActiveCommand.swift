@@ -2,13 +2,16 @@ import Cocoa
 import CoreGraphics
 import Foundation
 
-class ActiveWindowCenter: CliCommand {
+class ActiveCommand : CliCommand {
+
+    private let delay: UInt32?
+
+    init(delay: UInt32?) {
+        self.delay = delay
+    }
 
     func exec() -> Int32 {
-        if let delayArgumentValue = CommandLine.arguments.getArgumentValue(argName: "--delay"),
-           let delay = UInt32(delayArgumentValue) {
-            sleep(delay)
-        }
+        delay.sleep()
 
         guard let activeApplication = NSWorkspace.shared.frontmostApplication else {
             fputs("Failed to detect active application.\n", stderr)

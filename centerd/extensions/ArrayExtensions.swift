@@ -1,6 +1,6 @@
 extension Array where Element : Equatable {
 
-    func getArgumentValue(argName: Element) -> Element? {
+    public func getArgumentValue<T>(argName: Element, convert: (Element) -> T) -> T? {
         guard let index = self.firstIndex(of: argName) else {
             return nil
         }
@@ -9,6 +9,15 @@ extension Array where Element : Equatable {
             return nil
         }
 
-        return self[index + 1]
+        return convert(self[index + 1])
     }
+
+}
+
+extension Array {
+
+    public func toDictionary<Key, Value>() -> Dictionary<Key, Value> where Element == (Key, Value)  {
+        return Dictionary(uniqueKeysWithValues: self)
+    }
+
 }

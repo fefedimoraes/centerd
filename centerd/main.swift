@@ -1,14 +1,36 @@
 import Darwin
 
+let commands: [String : () -> CliCommand] = [
+    "active": {
+        ActiveCommand(
+            delay: CommandLine.arguments.getArgumentValue(argName: "--delay", convert: { UInt32($0) }) ?? nil,
+        )
+    },
+    "cycle": {
+        let step = switch CommandLine.arguments.dropFirst(2).first {
+        case "backwards": -1
+        case "forward": 1
+        case nil: 1
+        default: 1
+        }
+        return CycleCommand(
+            delay: CommandLine.arguments.getArgumentValue(argName: "--delay", convert: { UInt32($0) }) ?? nil,
+            tolerance: CommandLine.arguments.getArgumentValue(argName: "--tolerance", convert: { Double($0)! }) ?? 2.0,
+            step: step,
+        )
+    },
+]
+
 func main() -> Int32 {
-    let command = CommandLine.arguments.dropFirst().first ?? "active"
-    switch command {
-    case "active":
-        return ActiveWindowCenter().exec()
-    default:
-        print("Command not found. [Command: \(command)]")
-        return EX_NOINPUT
+    guard let commandName = CommandLine.arguments.dropFirst().first else {
+        print("Command is required. [Avaliable Commands: \(commands.keys)]")
+        return EX_USAGE
     }
+    guard let command = commands[commandName] else {
+        print("Command not found. [Requested Command: \(commandName)] [Avaliable Commands: \(commands.keys)]")
+        return EX_USAGE
+    }
+    return command().exec()
 }
 
 exit(main())
