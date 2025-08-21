@@ -5,6 +5,8 @@ import Foundation
 class TestCommand : CliCommand {
 
     private let delay: UInt32?
+    private let tolerance: Double = 2.0
+    private let step: Int = 1
 
     init(delay: UInt32?) {
         self.delay = delay
@@ -22,28 +24,56 @@ class TestCommand : CliCommand {
             .compactMap { $0.keyedById() }
             .toDictionary()
 
-        do {
-            let windowInfo = try getAllWindowInfo(pid: activeApplication.processIdentifier, cgWindowsById: allCgWindowsById)
-            print(windowInfo)
-        } catch {
+        guard let mouseLocation = CGEvent(source: nil)?.location else {
+            fputs("Failed to retrieve mouse location.\n", stderr)
             return EX_UNAVAILABLE
         }
-        return EX_OK
+
+        do {
+            let windowInfoById = try getAllWindowInfo(pid: activeApplication.processIdentifier, cgWindowsById: allCgWindowsById)
+            let windowInfoSortedById = windowInfoById.values.sorted(by: { $0.id < $1.id })
+            if let selectedIndex = windowInfoSortedById.firstIndex(where: { mouseLocation.distance(point: $0.getCenter()) < tolerance }) {
+                let nextWindow = windowInfoSortedById[(selectedIndex + step) % windowInfoSortedById.count]
+                nextWindow.axUiElementWindow.focusWindow()
+                CGWarpMouseCursorPosition(nextWindow.getCenter())
+                return EX_OK
+            }
+
+            guard let closestWindow = windowInfoSortedById.min(by: { lhs, rhs in mouseLocation.distance(point: lhs.getCenter()) < mouseLocation.distance(point: rhs.getCenter())}) else {
+                fputs("Failed to get closest window.\n", stderr)
+                return EX_UNAVAILABLE
+            }
+            CGWarpMouseCursorPosition(closestWindow.getCenter())
+            return EX_OK
+        } catch {
+            fputs("Failed to focus window.\n\(error)", stderr)
+            return EX_UNAVAILABLE
+        }
     }
 
-    private func getAllWindowInfo(pid: pid_t, cgWindowsById: [CGWindowID: CGWindow]) throws -> [WindowInfo] {
+    private func getAllWindowInfo(pid: pid_t, cgWindowsById: [CGWindowID: CGWindow]) throws -> [CGWindowID: WindowInfo] {
         return try AXUIElementCreateApplication(pid).getAllWindowsByPid(pid).compactMap { axUiElement in
-            guard let id = try axUiElement.cgWindowId(), let cgWindow = cgWindowsById[id] else {
+            guard let id = try axUiElement.cgWindowId(), let cgWindow = cgWindowsById[id], let bounds = cgWindow.bounds() else {
                 return nil
             }
-            return WindowInfo(id: id, cgWindow: cgWindow, axUiElementWindow: axUiElement)
-        }
+            return WindowInfo(
+                id: id,
+                cgWindow: cgWindow,
+                axUiElementWindow: axUiElement,
+                bounds: bounds,
+            )
+        }.map { ($0.id, $0) }.toDictionary()
     }
 
     private struct WindowInfo {
         let id: CGWindowID
         let cgWindow: CGWindow
         let axUiElementWindow: AXUIElement
+        let bounds: NSRect
+
+        func getCenter() -> CGPoint {
+            return CGPoint(x: bounds.midX, y: bounds.midY)
+        }
     }
 
 }
