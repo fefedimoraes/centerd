@@ -2,14 +2,16 @@ import Cocoa
 import CoreGraphics
 import Foundation
 
-class TestCommand : CliCommand {
+class CycleCommand : CliCommand {
 
     private let delay: UInt32?
-    private let tolerance: Double = 2.0
-    private let step: Int = 1
+    private let tolerance: Double
+    private let step: Int
 
-    init(delay: UInt32?) {
+    init(delay: UInt32?, tolerance: Double, step: Int) {
         self.delay = delay
+        self.tolerance = tolerance
+        self.step = step
     }
 
     func exec() -> Int32 {

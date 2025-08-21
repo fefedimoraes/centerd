@@ -1,14 +1,22 @@
 import Darwin
 
 let commands: [String : () -> CliCommand] = [
-    "test": {
-        TestCommand(
-            delay: CommandLine.arguments.getArgumentValue(argName: "--delay", convert: { UInt32($0) }) ?? nil,
-        )
-    },
     "active": {
         ActiveCommand(
             delay: CommandLine.arguments.getArgumentValue(argName: "--delay", convert: { UInt32($0) }) ?? nil,
+        )
+    },
+    "cycle": {
+        let step = switch CommandLine.arguments.dropFirst(2).first {
+        case "backwards": -1
+        case "forward": 1
+        case nil: 1
+        default: 1
+        }
+        return CycleCommand(
+            delay: CommandLine.arguments.getArgumentValue(argName: "--delay", convert: { UInt32($0) }) ?? nil,
+            tolerance: CommandLine.arguments.getArgumentValue(argName: "--tolerance", convert: { Double($0)! }) ?? 2.0,
+            step: step,
         )
     },
 ]
