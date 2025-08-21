@@ -1,13 +1,17 @@
 import Darwin
 
-let commands = [
-    "active": getActiveCommand,
+let commands: [String : () -> CliCommand] = [
+    "test": {
+        TestCommand(
+            delay: CommandLine.arguments.getArgumentValue(argName: "--delay", convert: { UInt32($0) }) ?? nil,
+        )
+    },
+    "active": {
+        ActiveCommand(
+            delay: CommandLine.arguments.getArgumentValue(argName: "--delay", convert: { UInt32($0) }) ?? nil,
+        )
+    },
 ]
-
-func getActiveCommand() -> CliCommand {
-    let delay = CommandLine.arguments.getArgumentValue(argName: "--delay", convert: { UInt32($0) })
-    return ActiveCommand(delay: delay ?? nil)
-}
 
 func main() -> Int32 {
     guard let commandName = CommandLine.arguments.dropFirst().first else {

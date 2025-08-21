@@ -13,3 +13,11 @@ extension Array where Element : Equatable {
     }
 
 }
+
+extension Array {
+
+    public func toDictionary<Key, Value>() -> Dictionary<Key, Value> where Element == (Key, Value)  {
+        return Dictionary(uniqueKeysWithValues: self)
+    }
+
+}
