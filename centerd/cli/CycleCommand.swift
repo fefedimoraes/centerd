@@ -41,7 +41,11 @@ class CycleCommand : CliCommand {
                 return EX_OK
             }
 
-            guard let closestWindow = windowInfoSortedById.min(by: { lhs, rhs in mouseLocation.distance(point: lhs.getCenter()) < mouseLocation.distance(point: rhs.getCenter())}) else {
+            guard let closestWindow = windowInfoSortedById.min(by: { lhs, rhs in
+                lhs.isInCurrentSpace == rhs.isInCurrentSpace
+                ? mouseLocation.distance(point: lhs.getCenter()) < mouseLocation.distance(point: rhs.getCenter())
+                : lhs.isInCurrentSpace
+            }) else {
                 fputs("Failed to get closest window.\n", stderr)
                 return EX_UNAVAILABLE
             }
@@ -55,7 +59,15 @@ class CycleCommand : CliCommand {
     }
 
     private func getAllWindowInfo(pid: pid_t, cgWindowsById: [CGWindowID: CGWindow]) throws -> [CGWindowID: WindowInfo] {
-        return try AXUIElementCreateApplication(pid).getAllWindowsByPid(pid).compactMap { axUiElement in
+        let app = AXUIElementCreateApplication(pid)
+        let currentSpaceWindows: Set<CGWindowID> = try app.getCurrentSpaceWindows().compactMap { axUiElement in
+            guard let id = try axUiElement.cgWindowId() else {
+                return nil
+            }
+            return id
+        }.toSet()
+
+        return try app.getAllWindowsByPid(pid).compactMap { axUiElement in
             guard let id = try axUiElement.cgWindowId(), let cgWindow = cgWindowsById[id], let bounds = cgWindow.bounds() else {
                 return nil
             }
@@ -64,6 +76,7 @@ class CycleCommand : CliCommand {
                 cgWindow: cgWindow,
                 axUiElementWindow: axUiElement,
                 bounds: bounds,
+                isInCurrentSpace: currentSpaceWindows.contains(id),
             )
         }.map { ($0.id, $0) }.toDictionary()
     }
@@ -73,6 +86,7 @@ class CycleCommand : CliCommand {
         let cgWindow: CGWindow
         let axUiElementWindow: AXUIElement
         let bounds: NSRect
+        let isInCurrentSpace: Bool
 
         func getCenter() -> CGPoint {
             return CGPoint(x: bounds.midX, y: bounds.midY)

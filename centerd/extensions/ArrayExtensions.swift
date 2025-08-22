@@ -1,4 +1,4 @@
-extension Array where Element : Equatable {
+extension Array where Element : Equatable, Element : Hashable {
 
     public func getArgumentValue<T>(argName: Element, convert: (Element) -> T) -> T? {
         guard let index = self.firstIndex(of: argName) else {
@@ -10,6 +10,10 @@ extension Array where Element : Equatable {
         }
 
         return convert(self[index + 1])
+    }
+
+    public func toSet() -> Set<Element> {
+        return Set(self)
     }
 
 }
