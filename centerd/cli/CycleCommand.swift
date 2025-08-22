@@ -45,6 +45,7 @@ class CycleCommand : CliCommand {
                 fputs("Failed to get closest window.\n", stderr)
                 return EX_UNAVAILABLE
             }
+            closestWindow.axUiElementWindow.focusWindow()
             CGWarpMouseCursorPosition(closestWindow.getCenter())
             return EX_OK
         } catch {
