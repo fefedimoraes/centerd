@@ -36,23 +36,25 @@ extension AXUIElement {
     }
 
     private static func getWindowsByBruteForce(_ pid: pid_t) -> [AXUIElement] {
-        // we use this to call _AXUIElementCreateWithRemoteToken; we reuse the object for performance
+        return (0 ..< 1000).parallelCompactMap { getWindowByBruteForce(pid, index: $0 as AXUIElementID) }
+    }
+
+    private static func getWindowByBruteForce(_ pid: pid_t, index: AXUIElementID) -> AXUIElement? {
+        // we use this to call _AXUIElementCreateWithRemoteToken
         // tests showed that this remoteToken is 20 bytes: 4 + 4 + 4 + 8; the order of bytes matters
         var remoteToken = Data(count: 20)
         remoteToken.replaceSubrange(0..<4, with: withUnsafeBytes(of: pid) { Data($0) })
         remoteToken.replaceSubrange(4..<8, with: withUnsafeBytes(of: Int32(0)) { Data($0) })
         remoteToken.replaceSubrange(8..<12, with: withUnsafeBytes(of: Int32(0x636f636f)) { Data($0) })
-        var axWindows = [AXUIElement]()
-        // we iterate to 1000 as a tradeoff between performance, and missing windows of long-lived processes
-        for axUiElementId: AXUIElementID in 0..<1000 {
-            remoteToken.replaceSubrange(12..<20, with: withUnsafeBytes(of: axUiElementId) { Data($0) })
-            if let axUiElement = _AXUIElementCreateWithRemoteToken(remoteToken as CFData)?.takeRetainedValue(),
-               let subrole = try? axUiElement.subrole(),
-               [kAXStandardWindowSubrole, kAXDialogSubrole].contains(subrole) {
-                axWindows.append(axUiElement)
-            }
+        remoteToken.replaceSubrange(12..<20, with: withUnsafeBytes(of: index) { Data($0) })
+
+        if let axUiElement = _AXUIElementCreateWithRemoteToken(remoteToken as CFData)?.takeRetainedValue(),
+           let subrole = try? axUiElement.subrole(),
+           subrole == kAXStandardWindowSubrole || subrole == kAXDialogSubrole {
+            return axUiElement
         }
-        return axWindows
+
+        return nil
     }
 
     private func getAttribute<T>(_ key: String, _ _: T.Type) throws -> T? {
