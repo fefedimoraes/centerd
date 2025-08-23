@@ -35,7 +35,8 @@ class CycleCommand : CliCommand {
             let windowInfoById = try getAllWindowInfo(pid: activeApplication.processIdentifier, cgWindowsById: allCgWindowsById)
             let windowInfoSortedById = windowInfoById.values.sorted(by: { $0.id < $1.id })
             if let selectedIndex = windowInfoSortedById.firstIndex(where: { mouseLocation.distance(point: $0.getCenter()) < tolerance }) {
-                let nextWindow = windowInfoSortedById[(selectedIndex + step) % windowInfoSortedById.count]
+                let nextIndex = ((selectedIndex + step) % windowInfoSortedById.count + windowInfoSortedById.count) % windowInfoSortedById.count
+                let nextWindow = windowInfoSortedById[nextIndex]
                 nextWindow.axUiElementWindow.focusWindow()
                 CGWarpMouseCursorPosition(nextWindow.getCenter())
                 return EX_OK
