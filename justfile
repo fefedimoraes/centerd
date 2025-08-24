@@ -8,3 +8,6 @@ build:
 
 install: build
   cp .build/apple/Products/Release/centerd /usr/local/bin
+
+uninstall:
+  rm /usr/local/bin/centerd
