@@ -78,7 +78,7 @@ shift + ctrl + alt - b : centerd cycle backwards --app "Google Chrome" || open "
 ```bash
 git clone https://github.com/fefedimoraes/centerd centerd
 cd centerd
-just
+just install
 ```
 
 ## Acknowledgments
