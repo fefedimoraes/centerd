@@ -1,10 +1,10 @@
-default: clean-archive archive install
+default: build
 
-clean-archive:
-  rm -rf centerd.xcarchive
+clean:
+  rm -rf .build
 
-archive:
-  xcodebuild -workspace centerd.xcodeproj/project.xcworkspace -scheme centerd -configuration release -archivePath centerd.xcarchive clean archive
+build:
+  swift build -c release --arch arm64 --arch x86_64 --product centerd
 
-install: archive
-  cp centerd.xcarchive/Products/usr/local/bin/centerd /usr/local/bin
+install: build
+  cp .build/apple/Products/Release/centerd /usr/local/bin

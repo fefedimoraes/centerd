@@ -94,7 +94,7 @@ class CycleCommand : CliCommand {
                 cgWindow: cgWindow,
                 axUiElementWindow: axUiElement,
                 bounds: bounds,
-                isInCurrentSpace: currentSpaceWindows.contains(id),
+                isInCurrentSpace: currentSpaceWindows.contains(id)
             )
         }.map { ($0.id, $0) }.toDictionary()
     }

@@ -3,7 +3,7 @@ import Darwin
 let commands: [String : () -> CliCommand] = [
     "active": {
         ActiveCommand(
-            delay: CommandLine.arguments.getArgumentValue(argName: "--delay", convert: { UInt32($0) }) ?? nil,
+            delay: CommandLine.arguments.getArgumentValue(argName: "--delay", convert: { UInt32($0) }) ?? nil
         )
     },
     "apps": {
@@ -22,7 +22,7 @@ let commands: [String : () -> CliCommand] = [
         return CycleCommand(
             appName: appName,
             step: step,
-            tolerance: CommandLine.arguments.getArgumentValue(argName: "--tolerance", convert: { Double($0)! }) ?? 2.0,
+            tolerance: CommandLine.arguments.getArgumentValue(argName: "--tolerance", convert: { Double($0)! }) ?? 2.0
         )
     },
 ]
