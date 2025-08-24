@@ -4,21 +4,19 @@ import Foundation
 
 class CycleCommand : CliCommand {
 
-    private let delay: UInt32?
-    private let tolerance: Double
+    private let appName: String
     private let step: Int
+    private let tolerance: Double
 
-    init(delay: UInt32?, tolerance: Double, step: Int) {
-        self.delay = delay
-        self.tolerance = tolerance
+    init(appName: String, step: Int, tolerance: Double) {
+        self.appName = appName
         self.step = step
+        self.tolerance = tolerance
     }
 
     func exec() -> Int32 {
-        delay.sleep()
-
-        guard let activeApplication = NSWorkspace.shared.frontmostApplication else {
-            fputs("Failed to detect active application.\n", stderr)
+        guard let application = NSWorkspace.shared.runningApplications.first(where: { $0.localizedName == appName }) else {
+            fputs("Could not find app. [App Name: \(appName)]", stderr)
             return EX_UNAVAILABLE
         }
 
@@ -32,31 +30,50 @@ class CycleCommand : CliCommand {
         }
 
         do {
-            let windowInfoById = try getAllWindowInfo(pid: activeApplication.processIdentifier, cgWindowsById: allCgWindowsById)
-            let windowInfoSortedById = windowInfoById.values.sorted(by: { $0.id < $1.id })
-            if let selectedIndex = windowInfoSortedById.firstIndex(where: { mouseLocation.distance(point: $0.getCenter()) < tolerance }) {
-                let nextIndex = ((selectedIndex + step) % windowInfoSortedById.count + windowInfoSortedById.count) % windowInfoSortedById.count
-                let nextWindow = windowInfoSortedById[nextIndex]
-                nextWindow.axUiElementWindow.focusWindow()
-                CGWarpMouseCursorPosition(nextWindow.getCenter())
-                return EX_OK
-            }
-
-            guard let closestWindow = windowInfoSortedById.min(by: { lhs, rhs in
-                lhs.isInCurrentSpace == rhs.isInCurrentSpace
-                ? mouseLocation.distance(point: lhs.getCenter()) < mouseLocation.distance(point: rhs.getCenter())
-                : lhs.isInCurrentSpace
-            }) else {
-                fputs("Failed to get closest window.\n", stderr)
+            let windows = try getAllWindowInfo(pid: application.processIdentifier, cgWindowsById: allCgWindowsById)
+            guard let window = getWindow(application: application, mouseLocation: mouseLocation, windows: windows) else {
+                fputs("Failed to determine window to select.\n", stderr)
                 return EX_UNAVAILABLE
             }
-            closestWindow.axUiElementWindow.focusWindow()
-            CGWarpMouseCursorPosition(closestWindow.getCenter())
+
+            if !application.isActive {
+                guard application.activate() else {
+                    fputs("Failed to activate application.\n", stderr)
+                    return EX_UNAVAILABLE
+                }
+            }
+            window.axUiElementWindow.focusWindow()
+            CGWarpMouseCursorPosition(window.getCenter())
             return EX_OK
         } catch {
-            fputs("Failed to focus window.\n\(error)", stderr)
+            fputs("Failed to retrieve windows.\n\(error)", stderr)
             return EX_UNAVAILABLE
         }
+    }
+
+    private func getClosestWindow(mouseLocation: CGPoint, windows: [WindowInfo]) -> WindowInfo? {
+        return windows.min(by: { lhs, rhs in
+            lhs.isInCurrentSpace == rhs.isInCurrentSpace
+            ? mouseLocation.distance(point: lhs.getCenter()) < mouseLocation.distance(point: rhs.getCenter())
+            : lhs.isInCurrentSpace
+        })
+    }
+
+    private func getNextWindow(mouseLocation: CGPoint, windows: [WindowInfo]) -> WindowInfo? {
+        if let selectedIndex = windows.firstIndex(where: { mouseLocation.distance(point: $0.getCenter()) < tolerance }) {
+            let nextIndex = ((selectedIndex + step) % windows.count + windows.count) % windows.count
+            return windows[nextIndex]
+        }
+        return nil
+    }
+
+    private func getWindow(application: NSRunningApplication, mouseLocation: CGPoint, windows: [CGWindowID : WindowInfo]) -> WindowInfo? {
+        let sortedWindows = windows.values.sorted(by: { $0.id < $1.id })
+        if (!application.isActive) {
+            return getClosestWindow(mouseLocation: mouseLocation, windows: sortedWindows)
+        }
+        return getNextWindow(mouseLocation: mouseLocation, windows: sortedWindows)
+        ?? getClosestWindow(mouseLocation: mouseLocation, windows: sortedWindows)
     }
 
     private func getAllWindowInfo(pid: pid_t, cgWindowsById: [CGWindowID: CGWindow]) throws -> [CGWindowID: WindowInfo] {

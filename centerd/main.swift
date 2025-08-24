@@ -6,7 +6,13 @@ let commands: [String : () -> CliCommand] = [
             delay: CommandLine.arguments.getArgumentValue(argName: "--delay", convert: { UInt32($0) }) ?? nil,
         )
     },
+    "apps": {
+        return AppsCommand()
+    },
     "cycle": {
+        guard let appName = CommandLine.arguments.getArgumentValue(argName: "--app", convert: { $0 }) else {
+            return UsageCommand()
+        }
         let step = switch CommandLine.arguments.dropFirst(2).first {
         case "backwards": -1
         case "forward": 1
@@ -14,9 +20,9 @@ let commands: [String : () -> CliCommand] = [
         default: 1
         }
         return CycleCommand(
-            delay: CommandLine.arguments.getArgumentValue(argName: "--delay", convert: { UInt32($0) }) ?? nil,
-            tolerance: CommandLine.arguments.getArgumentValue(argName: "--tolerance", convert: { Double($0)! }) ?? 2.0,
+            appName: appName,
             step: step,
+            tolerance: CommandLine.arguments.getArgumentValue(argName: "--tolerance", convert: { Double($0)! }) ?? 2.0,
         )
     },
 ]

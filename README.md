@@ -18,18 +18,26 @@ Optional arguments:
 
 1. `--delay` **(Integer)**: The amount of seconds to wait before probing for the active application.
 
+### `apps` command
+
+Prints a list of running applications that can be used with the `cycle` command.
+
+```bash
+centerd apps
+```
+
 ### `cycle` command
 
 Warps the mouse to the center of the active application. Upon re-execution, if the mouse pointer is already centered in an active application window, it attempts to find the next window belonging to the same application. If another window is found, that window is focused and the mouse cursor is warped to its center.
 
 ```bash
-centerd cycle [forward|backwards] [--delay DELAY] [--tolerance TOLERANCE]
+centerd cycle [forward|backwards] <--app APP NAME> [--tolerance TOLERANCE]
 ```
 
 Optional arguments:
 
 1. `forward|backwards`: Whether to navigate forwards or backwards through the active application windows. Ordering is determined by Window's ID. Defaults to `forward`;
-2. `--delay` **(Integer)**: The amount of seconds to wait before probing for the active application;
+2. `--app` **(String)**: The name of the application whose windows will be cycled through. This argument is required.
 3. `--tolerance` **(Double)**: The tolerance threshold to be used when checking if the mouse cursor is at the center of a window. Defaults to `2.0`.
 
 ## skhd Configuration Sample
@@ -41,12 +49,12 @@ Below is a `skhdrc` example that illustrates how **centerd** can be paired with 
 # and warps the mouse to the center of its window.
 shift + ctrl - t : open "/Applications/Utilities/Terminal.app" && centerd active
 
-# Ctrl + Shift + B (for browser) opens (or focuses) Google Chrome;
+# Ctrl + Shift + B (for browser) focuses Google Chrome or opens a new instance if it is not running;
 # and warps the mouse to the center of its window,
 # or goes to the next Google Chrome window if the current one is already centered...
-shift + ctrl - b : open "/Applications/Google Chrome.app" && centerd cycle
+shift + ctrl - b : centerd cycle --app "Google Chrome" || open "/Applications/Google Chrome.app"
 # ...or goes to the previous Google Chrome window if Alt is also pressed.
-shift + ctrl + alt - b : open "/Applications/Google Chrome.app" && centerd cycle backwards
+shift + ctrl + alt - b : centerd cycle backwards --app "Google Chrome" || open "/Applications/Google Chrome.app"
 ```
 
 ## Install
