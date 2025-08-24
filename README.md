@@ -59,6 +59,25 @@ shift + ctrl + alt - b : centerd cycle backwards --app "Google Chrome" || open "
 
 ## Install
 
+### Homebrew
+
+Use [Homebrew](https://brew.sh/) to install `centerd`:
+
+```bash
+brew install fefedimoraes/tap/centerd
+```
+
+### Pre-build Binaries
+
+Download the latest release from the [`centerd` releases page](https://github.com/fefedimoraes/centerd/releases).
+
+Then, extract and install it using the following commands:
+
+```bash
+tar -xzf v*.tar.gz
+sudo cp centerd /usr/local/bin/
+```
+
 ### Source
 
 > #### Requirements
@@ -69,7 +88,7 @@ shift + ctrl + alt - b : centerd cycle backwards --app "Google Chrome" || open "
 > xcode-select --install
 > ```
 >
-> just
+> (Optional) `just` command runner
 >
 > ```bash
 > brew install just
@@ -78,7 +97,13 @@ shift + ctrl + alt - b : centerd cycle backwards --app "Google Chrome" || open "
 ```bash
 git clone https://github.com/fefedimoraes/centerd centerd
 cd centerd
+
+# If using just, run:
 just install
+
+# Otherwise, run:
+swift build -c release --arch arm64 --arch x86_64 --product centerd
+cp .build/apple/Products/Release/centerd /usr/local/bin/
 ```
 
 ## Acknowledgments
