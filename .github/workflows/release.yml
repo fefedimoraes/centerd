@@ -1,0 +1,32 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - v*.*.*
+
+jobs:
+  release:
+    runs-on: macos-15
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v3
+      - name: Build executable for release
+        run: swift build -c release --arch arm64 --arch x86_64 --product centerd
+      - name: Compress archive
+        run: tar -czf ${{ github.ref_name }}.tar.gz -C .build/apple/Products/Release centerd
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: ${{ github.ref_name }}.tar.gz
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: mislav/bump-homebrew-formula-action@v2
+        with:
+          formula-name: centerd
+          homebrew-tap: fefedimoraes/homebrew-tap
+          base-branch: master
+          download-url: https://github.com/fefedimoraes/centerd/releases/download/${{ github.ref_name }}/${{ github.ref_name }}.tar.gz
+        env:
+          COMMITTER_TOKEN: ${{ secrets.UPDATE_HOMEBREW_TAP }}
