@@ -2,7 +2,7 @@ import Foundation
 
 extension Collection {
 
-  func parallelCompactMap<R>(_ transform: @escaping (Element) -> R?) -> [R] {
+  public func parallelCompactMap<R>(_ transform: @escaping (Element) -> R?) -> [R] {
     var res: [R?] = .init(repeating: nil, count: count)
 
     let lock = NSRecursiveLock()
