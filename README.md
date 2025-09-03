@@ -1,3 +1,13 @@
+<h1 align="center">
+  <img src="Docs/public/centerd-logo.svg" width="144" height="144" style="border-radius: 23px;"/>
+</h1>
+
+<p align="center">
+  <a href="https://github.com/fefedimoraes/centerd/releases/latest"><img alt="GitHub release (latest SemVer)" src="https://img.shields.io/github/v/release/fefedimoraes/centerd?sort=semver"></a>
+  <img src="https://img.shields.io/github/downloads/fefedimoraes/centerd/total" alt="Downloads" />
+  <img src="https://img.shields.io/github/license/fefedimoraes/centerd" alt="MIT License" />
+</p>
+
 # centerd
 
 **centerd** is a simple command line application for MacOS that warps the mouse to the center of the active application.
