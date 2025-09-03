@@ -1,10 +1,10 @@
 import Foundation
 
-class UsageCommand : CliCommand {
+class UsageCommand: CliCommand {
 
-    func exec() -> Int32 {
-        print("Check usage.")
-        return EX_USAGE
-    }
+  func exec() -> Int32 {
+    print("Check usage.")
+    return EX_USAGE
+  }
 
 }

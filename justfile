@@ -3,7 +3,13 @@ default: build
 clean:
   rm -rf .build
 
-build:
+format:
+  swift format -r -i .
+
+lint:
+  swift format lint -r -s .
+
+build: format lint
   swift build -c release --arch arm64 --arch x86_64 --product centerd
 
 install: build

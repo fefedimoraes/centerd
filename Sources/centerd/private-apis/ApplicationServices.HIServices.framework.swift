@@ -5,7 +5,8 @@ import CoreFoundation
 /// returns the CGWindowID of the provided AXUIElement
 /// * macOS 10.10+
 @_silgen_name("_AXUIElementGetWindow") @discardableResult
-func _AXUIElementGetWindow(_ axUiElement: AXUIElement, _ wid: UnsafeMutablePointer<CGWindowID>) -> AXError
+func _AXUIElementGetWindow(_ axUiElement: AXUIElement, _ wid: UnsafeMutablePointer<CGWindowID>)
+  -> AXError
 
 /// returns an AXUIElement given a Data object. Data object should hold:
 /// - pid (4 bytes)

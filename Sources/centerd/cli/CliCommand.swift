@@ -1,5 +1,5 @@
 protocol CliCommand {
 
-    func exec() -> Int32
+  func exec() -> Int32
 
 }
