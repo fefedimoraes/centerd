@@ -18,16 +18,14 @@ extension NSRunningApplication {
     }.toSet()
 
     return try application.getAllWindowsByPid(processIdentifier).compactMap { axUiElement in
-      guard let id = try axUiElement.cgWindowId(), let cgWindow = cgWindowsById[id],
-        let bounds = cgWindow.bounds()
-      else {
+      guard let id = try axUiElement.cgWindowId(), let cgWindow = cgWindowsById[id] else {
         return nil
       }
       return WindowInfo(
+        application: self,
         id: id,
         cgWindow: cgWindow,
         axUiElementWindow: axUiElement,
-        bounds: bounds,
         isInCurrentSpace: currentSpaceWindows.contains(id)
       )
     }
@@ -53,7 +51,7 @@ extension NSRunningApplication {
   ) -> WindowInfo? {
     return windows.min(by: { lhs, rhs in
       lhs.isInCurrentSpace == rhs.isInCurrentSpace
-        ? reference.distance(point: lhs.getCenter()) < reference.distance(point: rhs.getCenter())
+        ? reference.distance(point: lhs.center()) < reference.distance(point: rhs.center())
         : lhs.isInCurrentSpace
     })
   }
@@ -65,7 +63,7 @@ extension NSRunningApplication {
     _ step: Int
   ) -> WindowInfo? {
     if let selectedIndex = windows.firstIndex(where: {
-      reference.distance(point: $0.getCenter()) < tolerance
+      reference.distance(point: $0.center()) < tolerance
     }) {
       return windows[((selectedIndex + step) % windows.count + windows.count) % windows.count]
     }

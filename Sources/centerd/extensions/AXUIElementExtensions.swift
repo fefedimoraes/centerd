@@ -10,7 +10,11 @@ extension AXUIElement {
     return try getAttribute(kAXSubroleAttribute, String.self)
   }
 
-  func cgWindowId() throws -> CGWindowID? {
+  public func title() throws -> String? {
+    return try getAttribute(kAXTitleAttribute, String.self)
+  }
+
+  public func cgWindowId() throws -> CGWindowID? {
     var id = CGWindowID(0)
     return try withThrow(_AXUIElementGetWindow(self, &id), &id)
   }
