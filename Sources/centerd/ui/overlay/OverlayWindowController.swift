@@ -56,6 +56,8 @@ class OverlayWindowController: NSWindowController {
     backgroundView.layer?.shadowColor = NSColor.black.cgColor
     backgroundView.layer?.shadowOpacity = 0.4
     backgroundView.layer?.shadowRadius = 20
+    backgroundView.layer?.borderWidth = 1
+    backgroundView.layer?.borderColor = NSColor.white.withAlphaComponent(0.15).cgColor
     backgroundView.translatesAutoresizingMaskIntoConstraints = false
 
     return backgroundView
@@ -119,10 +121,16 @@ class OverlayWindowController: NSWindowController {
   private static func highlightSelected(_ selectedIndex: Int, _ components: Components) {
     for (i, view) in components.windowRow.arrangedSubviews.enumerated() {
       let isSelected = (i == selectedIndex)
+      let color = (isSelected ? NSColor.black.withAlphaComponent(0.5) : NSColor.clear).cgColor
 
-      view.layer?.backgroundColor =
-        (isSelected ? NSColor.black.withAlphaComponent(0.5) : NSColor.clear)
-        .cgColor
+      if let layer = view.layer {
+        let animation = CABasicAnimation(keyPath: "backgroundColor")
+        animation.fromValue = layer.backgroundColor
+        animation.toValue = color
+        animation.duration = 0.15
+        layer.add(animation, forKey: "backgroundColor")
+        layer.backgroundColor = color  // set final value
+      }
 
       if isSelected {
         components.titleTextField.stringValue = (try? components.windows[i].title()) ?? "Untitled"
