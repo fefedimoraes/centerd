@@ -7,7 +7,7 @@ class Daemon {
       !windows.isEmpty
     else { return }
 
-    let overlayWindowController = try OverlayWindowController(windows: windows)
+    let overlayWindowController = OverlayWindowController(windows: windows)
     overlayWindowController.showWindow(self)
     Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) { _ in
       overlayWindowController.moveForward()

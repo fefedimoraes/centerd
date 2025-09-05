@@ -11,7 +11,7 @@ class OverlayWindowController: NSWindowController {
     fatalError("init(coder:) has not been implemented")
   }
 
-  init(windows: [WindowInfo]) throws {
+  init(windows: [WindowInfo]) {
     components = OverlayWindowController.setup(windows)
     super.init(window: components.overlayWindow)
   }
