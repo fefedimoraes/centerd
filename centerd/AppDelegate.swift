@@ -3,6 +3,11 @@ import SwiftUI
 
 /// Owns every service and the agent lifecycle: installs the status-bar item, wires the
 /// config store to the shortcut tap, requests Accessibility permission, and starts the tap.
+///
+/// Explicitly `@MainActor` so the app builds on toolchains that do not default to main-actor
+/// isolation (e.g. older Xcode on CI), where the lazy services below would otherwise be
+/// nonisolated and unable to construct the main-actor-isolated `SwitcherController`.
+@MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private let workspace: Workspace = SystemWorkspace()
