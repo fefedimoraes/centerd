@@ -3,30 +3,134 @@ name: Release
 on:
   push:
     tags:
-      - v*.*.*
+      - "v*.*.*"
+
+permissions:
+  contents: write
 
 jobs:
   release:
     runs-on: macos-15
-    permissions:
-      contents: write
-
+    env:
+      SCHEME: centerd
+      APP_NAME: centerd
     steps:
-      - uses: actions/checkout@v3
-      - name: Build executable for release
-        run: swift build -c release --arch arm64 --arch x86_64 --product centerd
-      - name: Compress archive
-        run: tar -czf ${{ github.ref_name }}.tar.gz -C .build/apple/Products/Release centerd
-      - name: Release
-        uses: softprops/action-gh-release@v1
-        with:
-          files: ${{ github.ref_name }}.tar.gz
-          token: ${{ secrets.GITHUB_TOKEN }}
-      - uses: mislav/bump-homebrew-formula-action@v2
-        with:
-          formula-name: centerd
-          homebrew-tap: fefedimoraes/homebrew-tap
-          base-branch: master
-          download-url: https://github.com/fefedimoraes/centerd/releases/download/${{ github.ref_name }}/${{ github.ref_name }}.tar.gz
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Derive version from tag
+        id: version
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "archive=${APP_NAME}-${VERSION}.zip" >> "$GITHUB_OUTPUT"
+
+      - name: Import signing certificate
         env:
-          COMMITTER_TOKEN: ${{ secrets.UPDATE_HOMEBREW_TAP }}
+          DEVELOPER_ID_CERT_P12: ${{ secrets.DEVELOPER_ID_CERT_P12 }}
+          DEVELOPER_ID_CERT_PASSWORD: ${{ secrets.DEVELOPER_ID_CERT_PASSWORD }}
+        run: |
+          KEYCHAIN_PATH="$RUNNER_TEMP/build.keychain-db"
+          KEYCHAIN_PASSWORD="$(uuidgen)"
+
+          # Create a dedicated, unlocked keychain for the signing identity.
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          # Import the Developer ID Application certificate (base64-encoded .p12).
+          echo "$DEVELOPER_ID_CERT_P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security import "$RUNNER_TEMP/cert.p12" \
+            -k "$KEYCHAIN_PATH" \
+            -P "$DEVELOPER_ID_CERT_PASSWORD" \
+            -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          # Make this keychain visible to codesign for the rest of the job.
+          security list-keychains -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | tr -d '"')
+          rm -f "$RUNNER_TEMP/cert.p12"
+
+      - name: Build, archive, and export signed .app
+        env:
+          DEVELOPMENT_TEAM: ${{ secrets.DEVELOPMENT_TEAM }}
+        run: |
+          # Archive a Release build, signed with the Developer ID identity.
+          xcodebuild \
+            -project centerd.xcodeproj \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -destination 'generic/platform=macOS' \
+            -archivePath "$RUNNER_TEMP/centerd.xcarchive" \
+            MARKETING_VERSION="${{ steps.version.outputs.version }}" \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="Developer ID Application" \
+            DEVELOPMENT_TEAM="$DEVELOPMENT_TEAM" \
+            OTHER_CODE_SIGN_FLAGS="--timestamp --options=runtime" \
+            archive
+
+          # Export the .app from the archive for Developer ID distribution.
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>developer-id</string>
+            <key>teamID</key>
+            <string>$DEVELOPMENT_TEAM</string>
+            <key>signingStyle</key>
+            <string>manual</string>
+          </dict>
+          </plist>
+          EOF
+
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/centerd.xcarchive" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
+            -exportPath "$RUNNER_TEMP/export"
+
+      - name: Notarize and staple
+        env:
+          NOTARY_APPLE_ID: ${{ secrets.NOTARY_APPLE_ID }}
+          NOTARY_PASSWORD: ${{ secrets.NOTARY_PASSWORD }}
+          NOTARY_TEAM_ID: ${{ secrets.DEVELOPMENT_TEAM }}
+        run: |
+          APP_PATH="$RUNNER_TEMP/export/${APP_NAME}.app"
+          ARCHIVE="$RUNNER_TEMP/${{ steps.version.outputs.archive }}"
+
+          # notarytool requires a zip (ditto preserves the bundle structure and symlinks).
+          ditto -c -k --keepParent "$APP_PATH" "$ARCHIVE"
+
+          xcrun notarytool submit "$ARCHIVE" \
+            --apple-id "$NOTARY_APPLE_ID" \
+            --password "$NOTARY_PASSWORD" \
+            --team-id "$NOTARY_TEAM_ID" \
+            --wait
+
+          # Staple the notarization ticket to the app, then re-zip for distribution.
+          xcrun stapler staple "$APP_PATH"
+          rm -f "$ARCHIVE"
+          ditto -c -k --keepParent "$APP_PATH" "$ARCHIVE"
+
+      - name: Compute SHA-256
+        id: shasum
+        run: |
+          ARCHIVE="$RUNNER_TEMP/${{ steps.version.outputs.archive }}"
+          echo "sha256=$(shasum -a 256 "$ARCHIVE" | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ runner.temp }}/${{ steps.version.outputs.archive }}
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Bump Homebrew cask
+        uses: macauley/action-homebrew-bump-cask@v1
+        with:
+          token: ${{ secrets.UPDATE_HOMEBREW_TAP }}
+          tap: fefedimoraes/homebrew-tap
+          cask: centerd
+          tag: ${{ github.ref_name }}
+          sha256: ${{ steps.shasum.outputs.sha256 }}

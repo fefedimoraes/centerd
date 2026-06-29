@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3E8BFF"/>
+      <stop offset="1" stop-color="#0B47C2"/>
+    </linearGradient>
+  </defs>
+
+  <!-- App tile: rounded "squircle" background -->
+  <rect x="64" y="64" width="896" height="896" rx="201" fill="url(#bg)"/>
+
+  <!-- Window: a rounded rect with a title bar, representing the target app window -->
+  <g fill="none" stroke="#FFFFFF" stroke-width="34" stroke-linejoin="round">
+    <rect x="236" y="276" width="552" height="472" rx="56"/>
+  </g>
+  <!-- Title bar separator -->
+  <line x1="236" y1="372" x2="788" y2="372" stroke="#FFFFFF" stroke-width="34"/>
+  <!-- Traffic-light dots -->
+  <g fill="#FFFFFF">
+    <circle cx="300" cy="324" r="15"/>
+    <circle cx="352" cy="324" r="15"/>
+    <circle cx="404" cy="324" r="15"/>
+  </g>
+
+  <!-- Centering crosshair + target at the window's center (512, 560) -->
+  <g stroke="#FFFFFF" stroke-width="30" stroke-linecap="round" fill="none">
+    <line x1="512" y1="452" x2="512" y2="492"/>
+    <line x1="512" y1="628" x2="512" y2="668"/>
+    <line x1="404" y1="560" x2="444" y2="560"/>
+    <line x1="580" y1="560" x2="620" y2="560"/>
+    <circle cx="512" cy="560" r="64"/>
+  </g>
+  <circle cx="512" cy="560" r="20" fill="#FFFFFF"/>
+</svg>

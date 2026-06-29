@@ -1,124 +1,126 @@
 <h1 align="center">
-  <img src="Docs/public/centerd-logo.svg" width="144" height="144" style="border-radius: 23px;"/>
+  <img src="icon/icon.svg" width="144" height="144"/>
 </h1>
 
 <p align="center">
-  <a href="https://github.com/fefedimoraes/centerd/releases/latest"><img alt="GitHub release (latest SemVer)" src="https://img.shields.io/github/v/release/fefedimoraes/centerd?sort=semver"></a>
+  <a href="https://github.com/fefedimoraes/centerd/releases/latest">
+    <img alt="GitHub release (latest SemVer)" src="https://img.shields.io/github/v/release/fefedimoraes/centerd?sort=semver">
+  </a>
   <img src="https://img.shields.io/github/downloads/fefedimoraes/centerd/total" alt="Downloads" />
   <img src="https://img.shields.io/github/license/fefedimoraes/centerd" alt="MIT License" />
 </p>
 
 # centerd
 
-**centerd** is a simple command line application for MacOS that warps the mouse to the center of the active application.
+`centerd` is a macOS background agent that lets you bind keyboard shortcuts to specific
+applications, so you can jump straight to the app you want instead of cycling through
+everything with <kbd>⌘</kbd> + <kbd>Tab</kbd>.
 
-This application is useful when paired with a Keyboard-based Application Launcher such as [koekeishiya's **skhd**](https://github.com/koekeishiya/skhd), so that not only does it open a new application (or, most importantly, focus on an already opened one) but also warps the mouse together with it.
+Press a binding and `centerd`:
 
-## Usage
+- **Switches to the app** if it is running with a single window — and centers the mouse
+  cursor in that window (hence the name), so you are immediately ready to use it.
+- **Shows a window switcher** if the app has multiple windows: an Alt-Tab-style vertical
+  list of window titles. Hold the modifiers and tap the main key to cycle the selection;
+  release the modifiers to commit.
+- **Launches the app** if it is not running (when `launch-application` is enabled).
 
-### `active` command
+## The window switcher
 
-Warps the mouse to the center of the active application.
+When a bound app has more than one window, a floating panel appears with the app's icon
+and name as a header, followed by its window titles in a vertical list:
 
-```bash
-centerd active [--delay DELAY]
+| <App icon> Google Chrome |
+| ------------------------ |
+| YouTube – Home           |
+| Gmail – Inbox            |
+| Google Sheets            |
+
+The currently selected window is highlighted in the system accent color. The default
+selection mirrors <kbd>⌘</kbd> + <kbd>Tab</kbd>: the second window when the app is already
+frontmost, otherwise the first. Each tap of the main key moves the highlight down and
+wraps around at the bottom. Releasing the modifier keys raises the highlighted window and
+(optionally) centers the mouse on it.
+
+## Configuration
+
+`centerd` reads its configuration from `~/.config/centerd/config.json`. With
+`hot-reload-config` enabled, the file is watched and changes apply automatically — no
+restart needed.
+
+```json
+{
+  "options": {
+    "center-mouse-cursor": true,
+    "launch-application": true,
+    "hot-reload-config": true
+  },
+  "applications": {
+    "Google Chrome": {
+      "bundle-id": "com.google.Chrome",
+      "shortcut": ["control", "shift", "b"]
+    }
+  }
+}
 ```
 
-Optional arguments:
+### Options
 
-1. `--delay` **(Integer)**: The amount of seconds to wait before probing for the active application.
+| Option                | Description                                                        |
+| --------------------- | ------------------------------------------------------------------ |
+| `center-mouse-cursor` | Center the mouse cursor in the destination window after switching. |
+| `launch-application`  | Launch a bound application that is not currently running.          |
+| `hot-reload-config`   | Watch the config file and reload it automatically when it changes. |
 
-### `apps` command
+### Applications
 
-Prints a list of running applications that can be used with the `cycle` command.
+Each entry under `applications` is keyed by the app's display name and accepts:
 
-```bash
-centerd apps
+| Key         | Required | Description                                                                                                       |
+| ----------- | -------- | ----------------------------------------------------------------------------------------------------------------- |
+| `bundle-id` | Yes      | The application's bundle identifier (e.g. `com.google.Chrome`). Used for precise targeting.                       |
+| `shortcut`  | Yes      | The shortcut tokens. All but the last are modifiers; the last is the main key — e.g. `["control", "shift", "b"]`. |
+
+Supported modifier tokens: `control` (`ctrl`), `shift`, `command` (`cmd`),
+`option` (`opt`, `alt`). The main key is matched against the character your keyboard
+produces, so bindings work across keyboard layouts.
+
+## Permissions
+
+`centerd` requires **Accessibility** permission to read window titles, raise windows, and
+move the mouse, and **Input Monitoring** to listen for the global shortcuts. On first
+launch you will be prompted; grant access in
+**System Settings → Privacy & Security → Accessibility** (and **Input Monitoring**).
+Without these permissions the agent cannot function.
+
+## Running
+
+`centerd` runs as a background agent (`LSUIElement`): it has no Dock icon and no main
+window. It lives in the menu bar, where a status item provides:
+
+- **Reload Config** — re-read the configuration file on demand.
+- **Quit centerd** — exit the agent.
+
+## Building
+
+Open the project in Xcode and build/run the `centerd` scheme, or from the command line:
+
+```sh
+xcodebuild -project centerd.xcodeproj -scheme centerd -configuration Debug build
 ```
 
-### `cycle` command
+## Architecture
 
-Warps the mouse to the center of the active application. Upon re-execution, if the mouse pointer is already centered in an active application window, it attempts to find the next window belonging to the same application. If another window is found, that window is focused and the mouse cursor is warped to its center.
+- **Platform:** macOS 14.0+ (Sonoma), built with Swift, SwiftUI (the switcher UI), and AppKit
+  (system integration, menu bar, accessibility).
+- **Global shortcuts:** a `CGEvent` tap intercepts the configured chords, swallowing only
+  matching keystrokes so other apps are unaffected, and detects modifier release to commit.
+- **Window discovery:** the Accessibility API (`AXUIElementCreateApplication`) plus the
+  private `_AXUIElementCreateWithRemoteToken` to find windows spread across multiple
+  Spaces (Virtual Desktops).
+- **Mouse centering:** computes the destination window's center from its accessibility
+  position and size and snaps the cursor there with `CGWarpMouseCursorPosition`.
 
-```bash
-centerd cycle [forward|backwards] <--app APP NAME> [--tolerance TOLERANCE]
-```
-
-Optional arguments:
-
-1. `forward|backwards`: Whether to navigate forwards or backwards through the active application windows. Ordering is determined by Window's ID. Defaults to `forward`;
-2. `--app` **(String)**: The name of the application whose windows will be cycled through. This argument is required.
-3. `--tolerance` **(Double)**: The tolerance threshold to be used when checking if the mouse cursor is at the center of a window. Defaults to `2.0`.
-
-## skhd Configuration Sample
-
-Below is a `skhdrc` example that illustrates how **centerd** can be paired with **skhd**:
-
-```bash
-# Ctrl + Shift + T (for terminal) opens (or focuses) the Terminal app;
-# and warps the mouse to the center of its window.
-shift + ctrl - t : open "/Applications/Utilities/Terminal.app" && centerd active
-
-# Ctrl + Shift + B (for browser) focuses Google Chrome or opens a new instance if it is not running;
-# and warps the mouse to the center of its window,
-# or goes to the next Google Chrome window if the current one is already centered...
-shift + ctrl - b : centerd cycle --app "Google Chrome" || open "/Applications/Google Chrome.app"
-# ...or goes to the previous Google Chrome window if Alt is also pressed.
-shift + ctrl + alt - b : centerd cycle backwards --app "Google Chrome" || open "/Applications/Google Chrome.app"
-```
-
-## Install
-
-### Homebrew
-
-Use [Homebrew](https://brew.sh/) to install `centerd`:
-
-```bash
-brew install fefedimoraes/tap/centerd
-```
-
-### Pre-build Binaries
-
-Download the latest release from the [`centerd` releases page](https://github.com/fefedimoraes/centerd/releases).
-
-Then, extract and install it using the following commands:
-
-```bash
-tar -xzf v*.tar.gz
-sudo cp centerd /usr/local/bin/
-```
-
-### Source
-
-> #### Requirements
->
-> Xcode Command Line Tools
->
-> ```bash
-> xcode-select --install
-> ```
->
-> (Optional) `just` command runner
->
-> ```bash
-> brew install just
-> ```
-
-```bash
-git clone https://github.com/fefedimoraes/centerd centerd
-cd centerd
-
-# If using just, run:
-just install
-
-# Otherwise, run:
-swift build -c release --arch arm64 --arch x86_64 --product centerd
-cp .build/apple/Products/Release/centerd /usr/local/bin/
-```
-
-## Acknowledgments
-
-Parts of this project were heavily inspired by:
-
-1. [lwouis' **alt-tab-macos**](https://github.com/lwouis/alt-tab-macos) &mdash; In special to [commit `2cd8b96`](https://github.com/lwouis/alt-tab-macos/commit/2cd8b96d389004b41ce2aad5667d0a11be36dabf), which introduced a workaround to retrieve focusable windows across all virtual Spaces;
-2. [koekeishiya's **skhd**](https://github.com/koekeishiya/skhd) &mdash; Without it, there would be no reason to create **centerd**.
+The code is organized into small, protocol-backed services (`Workspace`, `Accessibility`,
+`WindowFinder`, `ConfigStore`, `ShortcutTap`) wired together by `AppDelegate`, with a
+`SwitcherController` driving the interaction state machine.

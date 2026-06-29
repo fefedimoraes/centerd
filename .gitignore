@@ -1,3 +1,9 @@
-.build/
-.swiftpm/
-*.xcarchive
+**/xcuserdata
+*.log
+*~
+.*.swp
+.DS_Store
+.direnv/
+.envrc.local
+.swp
+.vscode/
