@@ -25,10 +25,11 @@ jobs:
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "archive=${APP_NAME}-${VERSION}.zip" >> "$GITHUB_OUTPUT"
 
-      - name: Import signing certificate
+      - name: Import self-signed certificate
+        id: signing
         env:
-          DEVELOPER_ID_CERT_P12: ${{ secrets.DEVELOPER_ID_CERT_P12 }}
-          DEVELOPER_ID_CERT_PASSWORD: ${{ secrets.DEVELOPER_ID_CERT_PASSWORD }}
+          SELF_SIGNED_CERT_P12: ${{ secrets.SELF_SIGNED_CERT_P12 }}
+          SELF_SIGNED_CERT_PASSWORD: ${{ secrets.SELF_SIGNED_CERT_PASSWORD }}
         run: |
           KEYCHAIN_PATH="$RUNNER_TEMP/build.keychain-db"
           KEYCHAIN_PASSWORD="$(uuidgen)"
@@ -38,11 +39,11 @@ jobs:
           security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
 
-          # Import the Developer ID Application certificate (base64-encoded .p12).
-          echo "$DEVELOPER_ID_CERT_P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          # Import the self-signed code-signing certificate (base64-encoded .p12).
+          echo "$SELF_SIGNED_CERT_P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
           security import "$RUNNER_TEMP/cert.p12" \
             -k "$KEYCHAIN_PATH" \
-            -P "$DEVELOPER_ID_CERT_PASSWORD" \
+            -P "$SELF_SIGNED_CERT_PASSWORD" \
             -T /usr/bin/codesign
           security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
 
@@ -50,66 +51,41 @@ jobs:
           security list-keychains -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | tr -d '"')
           rm -f "$RUNNER_TEMP/cert.p12"
 
-      - name: Build, archive, and export signed .app
-        env:
-          DEVELOPMENT_TEAM: ${{ secrets.DEVELOPMENT_TEAM }}
+          # Discover the imported identity's name (the keychain holds only this cert).
+          IDENTITY="$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" | awk -F'"' 'NR==1 {print $2}')"
+          if [ -z "$IDENTITY" ]; then
+            echo "error: no code-signing identity found in the keychain" >&2
+            exit 1
+          fi
+          echo "identity=${IDENTITY}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and sign .app
         run: |
-          # Archive a Release build, signed with the Developer ID identity.
+          # Build a Release app without letting Xcode sign it; we sign manually below
+          # with the self-signed identity.
           xcodebuild \
             -project centerd.xcodeproj \
             -scheme "$SCHEME" \
             -configuration Release \
             -destination 'generic/platform=macOS' \
-            -archivePath "$RUNNER_TEMP/centerd.xcarchive" \
+            -derivedDataPath "$RUNNER_TEMP/dd" \
             MARKETING_VERSION="${{ steps.version.outputs.version }}" \
-            CODE_SIGN_STYLE=Manual \
-            CODE_SIGN_IDENTITY="Developer ID Application" \
-            DEVELOPMENT_TEAM="$DEVELOPMENT_TEAM" \
-            OTHER_CODE_SIGN_FLAGS="--timestamp --options=runtime" \
-            archive
+            CODE_SIGNING_ALLOWED=NO \
+            build
 
-          # Export the .app from the archive for Developer ID distribution.
-          cat > "$RUNNER_TEMP/ExportOptions.plist" <<EOF
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-            <key>method</key>
-            <string>developer-id</string>
-            <key>teamID</key>
-            <string>$DEVELOPMENT_TEAM</string>
-            <key>signingStyle</key>
-            <string>manual</string>
-          </dict>
-          </plist>
-          EOF
+          APP_PATH="$RUNNER_TEMP/dd/Build/Products/Release/${APP_NAME}.app"
 
-          xcodebuild -exportArchive \
-            -archivePath "$RUNNER_TEMP/centerd.xcarchive" \
-            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
-            -exportPath "$RUNNER_TEMP/export"
+          # Sign the bundle (and its nested code) with the self-signed identity.
+          # No hardened runtime: it is unnecessary without notarization and would only
+          # add library-validation friction for a self-signed build.
+          codesign --force --deep --sign "${{ steps.signing.outputs.identity }}" "$APP_PATH"
+          codesign --verify --deep --strict --verbose=2 "$APP_PATH"
 
-      - name: Notarize and staple
-        env:
-          NOTARY_APPLE_ID: ${{ secrets.NOTARY_APPLE_ID }}
-          NOTARY_PASSWORD: ${{ secrets.NOTARY_PASSWORD }}
-          NOTARY_TEAM_ID: ${{ secrets.DEVELOPMENT_TEAM }}
+      - name: Package archive
         run: |
-          APP_PATH="$RUNNER_TEMP/export/${APP_NAME}.app"
+          APP_PATH="$RUNNER_TEMP/dd/Build/Products/Release/${APP_NAME}.app"
           ARCHIVE="$RUNNER_TEMP/${{ steps.version.outputs.archive }}"
-
-          # notarytool requires a zip (ditto preserves the bundle structure and symlinks).
-          ditto -c -k --keepParent "$APP_PATH" "$ARCHIVE"
-
-          xcrun notarytool submit "$ARCHIVE" \
-            --apple-id "$NOTARY_APPLE_ID" \
-            --password "$NOTARY_PASSWORD" \
-            --team-id "$NOTARY_TEAM_ID" \
-            --wait
-
-          # Staple the notarization ticket to the app, then re-zip for distribution.
-          xcrun stapler staple "$APP_PATH"
-          rm -f "$ARCHIVE"
+          # ditto preserves the bundle structure, symlinks, and signature.
           ditto -c -k --keepParent "$APP_PATH" "$ARCHIVE"
 
       - name: Compute SHA-256
