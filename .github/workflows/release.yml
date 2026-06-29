@@ -51,10 +51,15 @@ jobs:
           security list-keychains -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | tr -d '"')
           rm -f "$RUNNER_TEMP/cert.p12"
 
-          # Discover the imported identity's name (the keychain holds only this cert).
-          IDENTITY="$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" | awk -F'"' 'NR==1 {print $2}')"
+          # Discover the imported identity (the keychain holds only this cert). We do NOT
+          # use `-v -p codesigning` here: those filter to trust-validated identities, and a
+          # self-signed cert in a fresh, untrusted keychain is not "valid" by that definition
+          # even though it signs fine (trust is only checked at verification time). We match
+          # the identity by its 40-char SHA-1 fingerprint, which is unambiguous.
+          IDENTITY="$(security find-identity "$KEYCHAIN_PATH" | grep -oE '[0-9A-F]{40}' | head -n 1)"
           if [ -z "$IDENTITY" ]; then
-            echo "error: no code-signing identity found in the keychain" >&2
+            echo "error: no signing identity found in the keychain" >&2
+            security find-identity "$KEYCHAIN_PATH" >&2
             exit 1
           fi
           echo "identity=${IDENTITY}" >> "$GITHUB_OUTPUT"
