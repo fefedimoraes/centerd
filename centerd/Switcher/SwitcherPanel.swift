@@ -31,25 +31,35 @@ public final class SwitcherPanel: NSPanel {
         hidesOnDeactivate = false
         ignoresMouseEvents = true
 
-        let visualEffect = NSVisualEffectView()
-        visualEffect.material = .hudWindow
-        visualEffect.blendingMode = .behindWindow
-        visualEffect.state = .active
-        visualEffect.wantsLayer = true
-        visualEffect.layer?.cornerRadius = 12
-        visualEffect.layer?.masksToBounds = true
-        visualEffect.translatesAutoresizingMaskIntoConstraints = false
-
         hostingView.translatesAutoresizingMaskIntoConstraints = false
 
         let container = NSView()
-        container.addSubview(visualEffect)
-        container.addSubview(hostingView)
+
+        // On macOS 26+ the SwiftUI `glassEffect` is the visible surface, so we skip the
+        // NSVisualEffectView backing entirely. On earlier systems it provides the blurred HUD.
+        if #available(macOS 26.0, *) {
+            container.addSubview(hostingView)
+        } else {
+            let visualEffect = NSVisualEffectView()
+            visualEffect.material = .hudWindow
+            visualEffect.blendingMode = .behindWindow
+            visualEffect.state = .active
+            visualEffect.wantsLayer = true
+            visualEffect.layer?.cornerRadius = 12
+            visualEffect.layer?.masksToBounds = true
+            visualEffect.translatesAutoresizingMaskIntoConstraints = false
+
+            container.addSubview(visualEffect)
+            container.addSubview(hostingView)
+            NSLayoutConstraint.activate([
+                visualEffect.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+                visualEffect.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+                visualEffect.topAnchor.constraint(equalTo: container.topAnchor),
+                visualEffect.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+            ])
+        }
+
         NSLayoutConstraint.activate([
-            visualEffect.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-            visualEffect.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            visualEffect.topAnchor.constraint(equalTo: container.topAnchor),
-            visualEffect.bottomAnchor.constraint(equalTo: container.bottomAnchor),
             hostingView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
             hostingView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
             hostingView.topAnchor.constraint(equalTo: container.topAnchor),
